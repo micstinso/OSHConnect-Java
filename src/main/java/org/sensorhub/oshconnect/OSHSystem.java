@@ -15,6 +15,8 @@ import org.sensorhub.oshconnect.util.ControlStreamsQueryBuilder;
 import org.sensorhub.oshconnect.util.DataStreamsQueryBuilder;
 import org.sensorhub.oshconnect.util.Utilities;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 
@@ -97,6 +99,14 @@ public class OSHSystem {
             }
         }
         return result;
+    }
+
+    public boolean isLive(Duration window) throws ExecutionException, InterruptedException {
+        var cutoff = Instant.now().minus(window);
+        return getConnectedSystemsApiClientExtras()
+                .getLastObservationTimes(getId(), "").get()
+                .values().stream()
+                .anyMatch(t -> t != null && t.isAfter(cutoff));
     }
 
     /**

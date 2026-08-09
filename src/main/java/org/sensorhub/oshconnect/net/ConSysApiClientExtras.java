@@ -24,12 +24,17 @@ import org.vast.util.BaseBuilder;
 
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class ConSysApiClientExtras {
     static final String JSON_ARRAY_ITEMS = "items";
@@ -134,6 +139,45 @@ public class ConSysApiClientExtras {
                 throw new CompletionException(e);
             }
         });
+    }
+
+    public CompletableFuture<Map<String, Instant>> getLastObservationTimes(String systemID, String queryString) {
+        if (queryString == null)
+            queryString = "";
+
+        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemID + "/" + DATASTREAMS_COLLECTION + queryString), ResourceFormat.JSON, body -> {
+            try {
+                var ctx = new RequestContext(body);
+                JsonObject bodyJson = JsonParser.parseReader(new InputStreamReader(ctx.getInputStream())).getAsJsonObject();
+                JsonArray features = bodyJson.getAsJsonArray(JSON_ARRAY_ITEMS);
+
+                Map<String, Instant> times = new LinkedHashMap<>();
+                for (var feature : features) {
+                    var obj = feature.getAsJsonObject();
+                    if (!obj.has("id"))
+                        throw new IOException("No id found in feature");
+                    times.put(obj.get("id").getAsString(), parseExtentEnd(obj.getAsJsonArray("phenomenonTime")));
+                }
+                return times;
+            } catch (IOException e) {
+                throw new CompletionException(e);
+            }
+        });
+    }
+
+    private static Instant parseExtentEnd(JsonArray extent) {
+        if (extent == null || extent.size() < 2)
+            return null;
+        var end = extent.get(1).getAsString();
+        if ("0".equals(end))          // no observations yet
+            return null;
+        if ("now".equals(end))        // defensive: your node uses this on validTime, not phenomenonTime
+            return Instant.now();
+        try {
+            return Instant.parse(end);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     /**
@@ -290,7 +334,7 @@ public class ConSysApiClientExtras {
                 }
 
                 return observations;
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new CompletionException(e);
             }
         });
