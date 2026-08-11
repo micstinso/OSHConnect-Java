@@ -78,6 +78,8 @@ public class WebSocketConnection implements WebSocketListener {
                 sslContextFactory.getSslContext().getClientSessionContext().setSessionCacheSize(0);
 
                 client = new WebSocketClient(sslContextFactory);
+                client.getPolicy().setMaxBinaryMessageSize(4 * 1024 * 1024);   // Jetty 9.x
+//                client.setMaxBinaryMessageSize(4 * 1024 * 1024);               // Jetty 10/11+
 
                 client.start();
                 client.connect(this, new URI(urlString), clientUpgradeRequest);
