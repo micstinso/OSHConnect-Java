@@ -132,9 +132,8 @@ public class CommandBindingJson extends ResourceBindingJson<String, CommandData>
             writer.name("id").value(commandID);
         }
 
-        // TODO: Should be controlstream@id
         if (commandData.getControlStreamId() != null) {
-            writer.name("control@id").value(commandData.getControlStreamId());
+            writer.name("controlstream@id").value(commandData.getControlStreamId());
         }
 
         if (commandData.getSamplingFeatureId() != null) {
@@ -149,8 +148,7 @@ public class CommandBindingJson extends ResourceBindingJson<String, CommandData>
         writer.name("sender").value(commandData.getSender());
 
         // create or reuse existing params writer and write param data
-        // TODO: Should be parameters
-        writer.name("params");
+        writer.name("parameters");
         var paramWriter = getSweCommonWriter(contextData.csInfo, writer, ctx.getPropertyFilter());
 
         // write if JSON is supported, otherwise print warning message
