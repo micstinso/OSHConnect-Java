@@ -7,11 +7,6 @@ gradle.ext.oshCoreDir = "$oshCoreDir"
 
 includeBuild "$oshCoreDir"
 
-include(":sensorhub-driver-ffmpeg")
-project(":sensorhub-driver-ffmpeg").projectDir = file("submodules/osh-addons/sensors/video/sensorhub-driver-ffmpeg")
-
 include(":sensorhub-driver-template")
 project(":sensorhub-driver-template").projectDir = file("drivers/sensorhub-driver-template")
 
-include(":sensorhub-driver-fakeweather")
-project(":sensorhub-driver-fakeweather").projectDir = file("submodules/osh-addons/sensors/simulated/sensorhub-driver-fakeweather")

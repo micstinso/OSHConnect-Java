@@ -15,6 +15,10 @@ java {
 
 repositories {
     mavenCentral()
+    maven {
+        url 'https://nexus.georobotix.us/repository/georobotix-public'
+        content { includeGroup 'org.sensorhub' }
+    }
 }
 
 dependencies {
@@ -23,7 +27,6 @@ dependencies {
     implementation 'org.eclipse.jetty.websocket:websocket-client:9.4.56.v20240826'
     implementation 'org.json:json:20240303'
     api 'org.sensorhub:sensorhub-core:' + oshCoreVersion
-    implementation 'org.sensorhub:sensorhub-datastore-h2:' + oshCoreVersion
     implementation 'org.sensorhub:sensorhub-service-consys:' + oshCoreVersion
 
     implementation 'org.vast.opengis:swe-common-om:' + oshCoreVersion
@@ -34,15 +37,14 @@ dependencies {
 
 
     testImplementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
-    testImplementation 'org.sensorhub:sensorhub-core-osgi:' + oshCoreVersion
     testImplementation 'org.sensorhub:sensorhub-datastore-h2:' + oshCoreVersion
     testImplementation 'org.sensorhub:sensorhub-service-swe:' + oshCoreVersion
     testImplementation 'org.sensorhub:sensorhub-webui-core:' + oshCoreVersion
     testImplementation 'org.sensorhub:sensorhub-service-consys:' + oshCoreVersion
 
-    testImplementation project(':sensorhub-driver-ffmpeg')
+    testImplementation 'org.sensorhub:sensorhub-driver-ffmpeg:1.1.0'
     testImplementation project(':sensorhub-driver-template')
-    testImplementation project(':sensorhub-driver-fakeweather')
+    testImplementation 'org.sensorhub:sensorhub-driver-fakeweather:1.0.0'
 
 
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
@@ -73,13 +75,6 @@ test {
 }
 
 project(':sensorhub-driver-template') {
-    tasks.named('test') {
-        enabled = false
-    }
-}
-
-
-project(':sensorhub-driver-fakeweather') {
     tasks.named('test') {
         enabled = false
     }

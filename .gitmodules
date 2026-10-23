@@ -1,6 +1,3 @@
 [submodule "submodules/osh-core"]
 	path = submodules/osh-core
 	url = https://github.com/opensensorhub/osh-core
-[submodule "submodules/osh-addons"]
-	path = submodules/osh-addons
-	url = https://github.com/opensensorhub/osh-addons.git
