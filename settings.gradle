@@ -1,11 +1,4 @@
 rootProject.name = 'OSHConnect-Java'
-def includeDir = "$rootDir/submodules"
-
-var oshCoreDir = "$includeDir/osh-core"
-
-gradle.ext.oshCoreDir = "$oshCoreDir"
-
-includeBuild "$oshCoreDir"
 
 include(":sensorhub-driver-template")
 project(":sensorhub-driver-template").projectDir = file("drivers/sensorhub-driver-template")

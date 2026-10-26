@@ -2,9 +2,6 @@ plugins {
     id 'java-library'
 }
 
-var oshCoreDir = "$projectDir/submodules/osh-core"
-
-apply from: oshCoreDir + '/common.gradle'
 group = 'org.sensorhub'
 version = '1.0'
 
@@ -17,7 +14,10 @@ repositories {
     mavenCentral()
     maven {
         url 'https://nexus.georobotix.us/repository/georobotix-public'
-        content { includeGroup 'org.sensorhub' }
+        content {
+            includeGroup 'org.sensorhub'
+            includeGroup 'org.vast.opengis'
+        }
     }
 }
 
@@ -54,9 +54,25 @@ subprojects {
     repositories {
         mavenCentral()
         google()
+        maven {
+            url 'https://nexus.georobotix.us/repository/georobotix-public'
+            content {
+                includeGroup 'org.sensorhub'
+                includeGroup 'org.vast.opengis'
+            }
+        }
     }
 
     apply plugin: 'java-library'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+    }
 
     ext.pom = {}
 }
