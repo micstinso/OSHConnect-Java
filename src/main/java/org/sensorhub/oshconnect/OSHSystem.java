@@ -72,25 +72,32 @@ public class OSHSystem {
         List<OSHDataStream> result = new ArrayList<>();
 
         for (var id : dataStreamIds) {
-            IDataStreamInfo dataStreamResource = null;
+            IDataStreamInfo dataStreamResource;
 
             try {
                 dataStreamResource = getConnectedSystemsApiClient().getDatastreamById(id, ResourceFormat.OM_JSON, true).get();
-            } catch ( Exception e ) {
-
-                //in some cases fetching the schema from a live node doesn't work because ConSysApiClient defaults to swe+json
-                //for the request which may not be available
-                if (e.getCause() instanceof java.util.concurrent.CompletionException || e.getCause() instanceof org.sensorhub.impl.service.consys.ResourceParseException) {
-                    if (e.getCause().getMessage().contains("Unsupported format") ||
-                        e.getCause().getMessage().contains("Invalid JSON" ) ||
-                        e.getCause().getMessage().contains("HTTP error 400") ) {
-                        dataStreamResource = getConnectedSystemsApiClient().getDatastreamById(id, ResourceFormat.OM_JSON, false).get();
-                    } else {
-                        throw new RuntimeException(e);
-                    }
-                } else {
-                    throw new RuntimeException(e);
+            } catch (InterruptedException e) {
+                throw e;
+            } catch (Exception schemaError) {
+                // ConSysApiClient always asks for the schema as swe+json, which some
+                // streams don't offer (video: H.264/MJPEG frames are swe+binary only).
+                // Nodes answer that in different ways (400, "Unsupported format", a
+                // redirect to the web UI, HTML that isn't JSON), so whatever the failure,
+                // fall back to the data stream without its schema; callers that need
+                // the definitions can read them in another format, see
+                // ConSysApiClientExtras.getDataStreamSchemaDefinitions.
+                try {
+                    dataStreamResource = getConnectedSystemsApiClient().getDatastreamById(id, ResourceFormat.OM_JSON, false).get();
+                } catch (InterruptedException e) {
+                    throw e;
+                } catch (Exception e) {
+                    // One unreadable data stream must not hide the system's others.
+                    System.err.println("OSHSystem: skipping data stream " + id + " of system " + getId()
+                            + ": " + rootMessage(e) + " (schema request: " + rootMessage(schemaError) + ")");
+                    continue;
                 }
+                System.err.println("OSHSystem: data stream " + id + " has no swe+json schema ("
+                        + rootMessage(schemaError) + "); added without one");
             }
 
             var dataStream = addOrUpdateDataStream(id, dataStreamResource);
@@ -99,6 +106,12 @@ public class OSHSystem {
             }
         }
         return result;
+    }
+
+    private static String rootMessage(Throwable e) {
+        while (e.getCause() != null && e.getCause() != e)
+            e = e.getCause();
+        return e.getClass().getSimpleName() + ": " + e.getMessage();
     }
 
     public boolean isLive(Duration window) throws ExecutionException, InterruptedException {

@@ -3,6 +3,7 @@ package org.sensorhub.oshconnect.net;
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.sensorhub.api.command.ICommandStreamInfo;
@@ -34,7 +35,9 @@ import java.util.function.Function;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class ConSysApiClientExtras {
     static final String JSON_ARRAY_ITEMS = "items";
@@ -163,6 +166,67 @@ public class ConSysApiClientExtras {
                 throw new CompletionException(e);
             }
         });
+    }
+
+    /**
+     * Get every SWE Common {@code definition} in a data stream's record schema,
+     * fetched as {@code GET datastreams/{id}/schema?obsFormat=<obsFormat>}.
+     * <p>
+     * This exists for data streams whose schema the regular client can't fetch:
+     * it always asks for {@code application/swe+json}, which a video stream
+     * (H.264/MJPEG frames) typically doesn't offer, so its schema has to be read
+     * in the format it does offer, such as {@code application/swe+binary}. Only
+     * the definitions are returned, which is all that classification needs.
+     *
+     * @param dataStreamId The ID of the data stream.
+     * @param obsFormat    The observation format whose schema to read, e.g. {@code application/swe+binary}.
+     * @return The definitions of the record and all of its nested components.
+     */
+    public CompletableFuture<Set<String>> getDataStreamSchemaDefinitions(String dataStreamId, String obsFormat) {
+        var query = "?obsFormat=" + URLEncoder.encode(obsFormat, StandardCharsets.UTF_8);
+        return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + dataStreamId + "/schema" + query), ResourceFormat.JSON, body -> {
+            try {
+                var bodyJson = JsonParser.parseReader(new InputStreamReader(body, StandardCharsets.UTF_8));
+                if (!bodyJson.isJsonObject() || !bodyJson.getAsJsonObject().has("recordSchema"))
+                    throw new IOException("No recordSchema in the " + obsFormat + " schema of data stream " + dataStreamId);
+                return schemaDefinitions(bodyJson.getAsJsonObject().get("recordSchema"));
+            } catch (IOException | RuntimeException e) {
+                throw new CompletionException(e);
+            }
+        });
+    }
+
+    /**
+     * The {@code definition} of a SWE Common JSON component and of every component
+     * nested in it: record fields, array element types, choice items and vector
+     * coordinates. Array element counts, quality and constraints aren't components
+     * of the record, so they're left out.
+     *
+     * @param component A SWE Common component in its JSON encoding.
+     * @return The definitions found, at any depth.
+     */
+    public static Set<String> schemaDefinitions(JsonElement component) {
+        Set<String> definitions = new LinkedHashSet<>();
+        collectSchemaDefinitions(component, definitions);
+        return definitions;
+    }
+
+    private static void collectSchemaDefinitions(JsonElement element, Set<String> into) {
+        if (element == null || !element.isJsonObject())
+            return;
+        var component = element.getAsJsonObject();
+        var definition = component.get("definition");
+        if (definition != null && definition.isJsonPrimitive())
+            into.add(definition.getAsString());
+
+        collectSchemaDefinitions(component.get("elementType"), into);
+        for (var children : new String[]{"fields", "items", "coordinates"}) {
+            var list = component.get(children);
+            if (list != null && list.isJsonArray()) {
+                for (var child : list.getAsJsonArray())
+                    collectSchemaDefinitions(child, into);
+            }
+        }
     }
 
     private static Instant parseExtentEnd(JsonArray extent) {
