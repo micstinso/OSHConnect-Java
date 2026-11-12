@@ -1,5 +1,7 @@
 package org.sensorhub.oshconnect.net;
 
+import org.sensorhub.oshconnect.net.tls.TlsSettings;
+
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
 import com.google.gson.JsonArray;
@@ -49,7 +51,8 @@ public class ConSysApiClientExtras {
     static final String BINDING_ERROR = "Error initializing binding";
 
     protected URI endpoint;
-    protected Authenticator authenticator;
+    /** "Basic ..." sent on each connection; never the process-wide java.net.Authenticator. */
+    protected String authorization;
 
     protected ConSysApiClientExtras() {
     }
@@ -597,8 +600,9 @@ public class ConSysApiClientExtras {
             try {
                 URL url = collectionUri.toURL();
                 connection = (HttpURLConnection) url.openConnection();
-                if (authenticator != null) {
-                    Authenticator.setDefault(authenticator);
+                TlsSettings.apply(connection);
+                if (authorization != null) {
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, authorization);
                 }
                 connection.setRequestMethod("GET");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, format.getMimeType());
@@ -627,8 +631,9 @@ public class ConSysApiClientExtras {
             try {
                 URL url = collectionUri.toURL();
                 connection = (HttpURLConnection) url.openConnection();
-                if (authenticator != null) {
-                    Authenticator.setDefault(authenticator);
+                TlsSettings.apply(connection);
+                if (authorization != null) {
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, authorization);
                 }
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
@@ -669,8 +674,9 @@ public class ConSysApiClientExtras {
             try {
                 URL url = collectionUri.toURL();
                 connection = (HttpURLConnection) url.openConnection();
-                if (authenticator != null) {
-                    Authenticator.setDefault(authenticator);
+                TlsSettings.apply(connection);
+                if (authorization != null) {
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, authorization);
                 }
                 connection.setRequestMethod("PUT");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
@@ -698,8 +704,9 @@ public class ConSysApiClientExtras {
             try {
                 URL url = collectionUri.toURL();
                 connection = (HttpURLConnection) url.openConnection();
-                if (authenticator != null) {
-                    Authenticator.setDefault(authenticator);
+                TlsSettings.apply(connection);
+                if (authorization != null) {
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, authorization);
                 }
                 connection.setRequestMethod("DELETE");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
@@ -729,16 +736,7 @@ public class ConSysApiClientExtras {
         }
 
         public ConSysApiClientExtras.ConSysApiClientExtrasBuilder simpleAuth(String user, char[] password) {
-            if (!Strings.isNullOrEmpty(user)) {
-                var finalPwd = password != null ? password : new char[0];
-                instance.authenticator = new Authenticator() {
-                    @Override
-                    protected PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication(user, finalPwd);
-                    }
-                };
-            }
-
+            instance.authorization = HttpConnections.basicAuthorization(user, password);
             return this;
         }
 

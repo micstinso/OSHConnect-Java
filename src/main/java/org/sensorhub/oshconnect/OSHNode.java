@@ -8,6 +8,7 @@ import org.sensorhub.oshconnect.constants.Service;
 import org.sensorhub.oshconnect.net.APIRequest;
 import org.sensorhub.oshconnect.net.APIResponse;
 import org.sensorhub.oshconnect.net.ConSysApiClientExtras;
+import org.sensorhub.oshconnect.net.OshConSysApiClient;
 import org.sensorhub.oshconnect.net.Protocol;
 import org.sensorhub.oshconnect.notification.INotificationSystem;
 import org.sensorhub.oshconnect.util.SystemsQueryBuilder;
@@ -418,13 +419,16 @@ public class OSHNode {
     }
 
     private void createConSysApiClient() {
-        var conSysBuilder = ConSysApiClient.newBuilder(Utilities.joinPath(getHTTPPrefix(), getApiEndpoint()));
-        var conSysExtrasBuilder = ConSysApiClientExtras.newBuilder(Utilities.joinPath(getHTTPPrefix(), getApiEndpoint()));
+        String apiRoot = Utilities.joinPath(getHTTPPrefix(), getApiEndpoint());
+        // osh-core's client, with its requests made through OSHConnect's TLS
+        // settings and credentials (see OshConSysApiClient).
+        conSysApiClient = new OshConSysApiClient(apiRoot,
+                authorizationToken != null ? username : null,
+                authorizationToken != null ? password.toCharArray() : null);
+        var conSysExtrasBuilder = ConSysApiClientExtras.newBuilder(apiRoot);
         if (authorizationToken != null) {
-            conSysBuilder.simpleAuth(username, password.toCharArray());
             conSysExtrasBuilder.simpleAuth(username, password.toCharArray());
         }
-        conSysApiClient = conSysBuilder.build();
         conSysApiClientExtras = conSysExtrasBuilder.build();
     }
 

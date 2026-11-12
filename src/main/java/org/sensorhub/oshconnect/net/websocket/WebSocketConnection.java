@@ -10,14 +10,9 @@ import org.eclipse.jetty.websocket.api.WebSocketListener;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.sensorhub.oshconnect.OSHNode;
+import org.sensorhub.oshconnect.net.tls.TlsSettings;
 
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.net.URI;
-import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,8 +26,6 @@ public class WebSocketConnection implements WebSocketListener {
     private WebSocketClient client = null; //new WebSocketClient();
     private final List<StatusListener> statusListeners = new ArrayList<>();
     private StreamStatus status = StreamStatus.DISCONNECTED;
-    private SSLContext sslContext = null;
-    private final SslContextFactory.Client sslContextFactory = new SslContextFactory.Client();
 
     public WebSocketConnection(StreamListener streamListener, String request) {
         this.streamListener = streamListener;
@@ -47,35 +40,13 @@ public class WebSocketConnection implements WebSocketListener {
             clientUpgradeRequest.setHeader("Authorization", "Basic " + parentNode.getAuthorizationToken());
 
             try {
-
-                TrustManager[] trustAllCerts = new TrustManager[]{
-                        new X509TrustManager() {
-                            @Override
-                            public X509Certificate[] getAcceptedIssuers() {
-                                return new X509Certificate[0];
-                            }
-
-                            @Override
-                            public void checkClientTrusted(X509Certificate[] chain, String authType) {}
-
-                            @Override
-                            public void checkServerTrusted(X509Certificate[] chain, String authType) {}
-                        }
-                };
-
-                if ( null == sslContext ) {
-                    sslContext = SSLContext.getInstance("TLS");
-                    sslContext.init(null, trustAllCerts, new SecureRandom());
-                    SSLContext.setDefault(sslContext);
-
-                    HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
-                    HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
-
-                    sslContextFactory.setSslContext(sslContext);
-
+                // The platform's trust unless the application configured its own
+                // (TlsSettings), with the hostname checked by the trust manager.
+                SslContextFactory.Client sslContextFactory = new SslContextFactory.Client();
+                if (TlsSettings.sslContext() != null) {
+                    sslContextFactory.setSslContext(TlsSettings.sslContext());
                 }
-                sslContextFactory.getSslContext().getClientSessionContext().setSessionTimeout(0);
-                sslContextFactory.getSslContext().getClientSessionContext().setSessionCacheSize(0);
+                sslContextFactory.setEndpointIdentificationAlgorithm("HTTPS");
 
                 client = new WebSocketClient(sslContextFactory);
                 client.getPolicy().setMaxBinaryMessageSize(4 * 1024 * 1024);   // Jetty 9.x

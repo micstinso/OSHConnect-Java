@@ -1,5 +1,7 @@
 package org.sensorhub.oshconnect.net;
 
+import org.sensorhub.oshconnect.net.tls.TlsSettings;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -85,6 +87,7 @@ public class APIRequest {
 
             URL urlWithParams = new URL(urlWithParamsBuilder.toString());
             HttpURLConnection connection = (HttpURLConnection) urlWithParams.openConnection();
+            TlsSettings.apply(connection);
             connection.setRequestMethod(requestMethod.name());
 
             if (headers != null)
