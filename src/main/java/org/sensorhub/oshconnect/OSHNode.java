@@ -289,9 +289,11 @@ public class OSHNode {
             this.username = username;
             this.password = password;
         } else {
+            // No credentials: authorizationToken == null is what marks the node
+            // as having no login. The password field is deliberately left as is
+            // (never read without a token; see getPassword()), rather than nulled.
             authorizationToken = null;
             this.username = null;
-            this.password = null;
         }
         createConSysApiClient();
     }
@@ -484,9 +486,10 @@ public class OSHNode {
     }
 
     /**
-     * The password for the server, if authentication is required.
+     * The password for the server, if authentication is required;
+     * null when the node has no credentials.
      */
     public String getPassword() {
-        return password;
+        return authorizationToken != null ? password : null;
     }
 }
