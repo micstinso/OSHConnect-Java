@@ -15,12 +15,15 @@ import org.sensorhub.oshconnect.net.tls.TlsSettings;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 /**
  * Class representing an active connection to a WebSocket.
  */
 public class WebSocketConnection implements WebSocketListener {
+    private static final Logger LOG = Logger.getLogger(WebSocketConnection.class.getName());
     private final StreamListener streamListener;
     private final String request;
     private WebSocketClient client = null; //new WebSocketClient();
@@ -55,6 +58,7 @@ public class WebSocketConnection implements WebSocketListener {
                 client.start();
                 client.connect(this, new URI(urlString), clientUpgradeRequest);
             } catch (Exception e) {
+                logFailure("cannot connect", e);
                 updateStatus(StreamStatus.ERROR);
             }
         }
@@ -90,7 +94,24 @@ public class WebSocketConnection implements WebSocketListener {
 
     @Override
     public void onWebSocketError(Throwable throwable) {
+        logFailure("failed", throwable);
         updateStatus(StreamStatus.ERROR);
+    }
+
+    /**
+     * Why a stream failed, e.g. a TLS or upgrade error, which otherwise only
+     * shows as StreamStatus.ERROR. The URL and the chain of causes, not the
+     * credentials (which are only in a header).
+     */
+    private void logFailure(String what, Throwable error) {
+        if (!LOG.isLoggable(Level.WARNING)) return;
+        StringBuilder causes = new StringBuilder();
+        for (Throwable t = error; t != null && causes.length() < 1000; t = t.getCause()) {
+            if (causes.length() > 0) causes.append(" <- ");
+            causes.append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+            if (t.getCause() == t) break;
+        }
+        LOG.warning("WebSocket " + request + " " + what + ": " + causes);
     }
 
     public void addStatusListener(StatusListener listener) {
