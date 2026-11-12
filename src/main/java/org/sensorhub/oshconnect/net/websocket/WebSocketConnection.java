@@ -12,6 +12,7 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.sensorhub.oshconnect.OSHNode;
 import org.sensorhub.oshconnect.net.tls.TlsSettings;
 
+import javax.net.ssl.SSLContext;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,9 +46,11 @@ public class WebSocketConnection implements WebSocketListener {
             try {
                 // The platform's trust unless the application configured its own
                 // (TlsSettings), with the hostname checked by the trust manager.
+                // A context of its own: see TlsSettings on not sharing sessions.
                 SslContextFactory.Client sslContextFactory = new SslContextFactory.Client();
-                if (TlsSettings.sslContext() != null) {
-                    sslContextFactory.setSslContext(TlsSettings.sslContext());
+                SSLContext sslContext = TlsSettings.newWebSocketContext();
+                if (sslContext != null) {
+                    sslContextFactory.setSslContext(sslContext);
                 }
                 sslContextFactory.setEndpointIdentificationAlgorithm("HTTPS");
 

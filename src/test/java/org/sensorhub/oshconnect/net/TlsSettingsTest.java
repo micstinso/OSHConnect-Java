@@ -57,6 +57,7 @@ class TlsSettingsTest {
     private HttpsServer server;
     private String root;
     private SSLContext trustsServer;
+    private javax.net.ssl.TrustManager[] trustManagers;
     /** "METHOD path Authorization" of each request. */
     private final List<String> requests = new CopyOnWriteArrayList<>();
 
@@ -89,8 +90,9 @@ class TlsSettingsTest {
         trust.setCertificateEntry("server", ks.getCertificate("s"));
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmf.init(trust);
+        trustManagers = tmf.getTrustManagers();
         trustsServer = SSLContext.getInstance("TLSv1.3");
-        trustsServer.init(null, tmf.getTrustManagers(), null);
+        trustsServer.init(null, trustManagers, null);
     }
 
     private void respond(HttpExchange exchange) throws IOException {
@@ -145,7 +147,8 @@ class TlsSettingsTest {
 
     private boolean jetty() {
         SslContextFactory.Client factory = new SslContextFactory.Client();
-        if (TlsSettings.sslContext() != null) factory.setSslContext(TlsSettings.sslContext());
+        SSLContext context = TlsSettings.newWebSocketContext();
+        if (context != null) factory.setSslContext(context);
         factory.setEndpointIdentificationAlgorithm("HTTPS");
         HttpClient client = new HttpClient(factory);
         try {
@@ -180,7 +183,7 @@ class TlsSettingsTest {
 
     @Test
     void configuredTrustIsUsedForHttpAndWebSockets() {
-        TlsSettings.configure(trustsServer, null);
+        TlsSettings.configure(() -> trustsServer, null);
         assertTrue(get());
         assertTrue(jetty());
         TlsSettings.configure(null, null);
@@ -188,9 +191,39 @@ class TlsSettingsTest {
         assertFalse(jetty());
     }
 
+    /**
+     * HTTP connections share one context; each WebSocket gets its own, so Jetty
+     * never tries to resume a session an HttpsURLConnection made (which Android's
+     * BoringSSL rejects: ATTEMPT_TO_REUSE_SESSION_IN_DIFFERENT_CONTEXT).
+     */
+    @Test
+    void webSocketsDoNotShareContextsWithHttp() {
+        java.util.concurrent.atomic.AtomicInteger made = new java.util.concurrent.atomic.AtomicInteger();
+        TlsSettings.configure(() -> {
+            made.incrementAndGet();
+            try {
+                SSLContext context = SSLContext.getInstance("TLSv1.3");
+                context.init(null, trustManagers, null);
+                return context;
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
+        }, null);
+
+        assertTrue(get());
+        assertTrue(get());
+        assertEquals(1, made.get(), "HTTP connections share one context");
+
+        SSLContext first = TlsSettings.newWebSocketContext();
+        SSLContext second = TlsSettings.newWebSocketContext();
+        assertFalse(first == second, "each WebSocket gets its own context");
+        assertEquals(3, made.get());
+        assertTrue(jetty());
+    }
+
     @Test
     void oshCoreRequestsUseTheConfiguredTrustAndCredentials() {
-        TlsSettings.configure(trustsServer, null);
+        TlsSettings.configure(() -> trustsServer, null);
         OshConSysApiClient client = new OshConSysApiClient(root.substring(0, root.length() - 1), "bob", "secret".toCharArray());
         URI api = URI.create(root);
 
@@ -210,7 +243,7 @@ class TlsSettingsTest {
 
     @Test
     void extrasSendCredentialsOnTheConnection() {
-        TlsSettings.configure(trustsServer, null);
+        TlsSettings.configure(() -> trustsServer, null);
         ConSysApiClientExtras extras = ConSysApiClientExtras.newBuilder(root).simpleAuth("bob", "secret".toCharArray()).build();
         assertEquals("hello", extras.sendGetRequest(URI.create(root + "get"), ResourceFormat.JSON, TlsSettingsTest::text).join());
         assertEquals("GET /api/get " + BASIC, requests.get(0));
@@ -225,7 +258,7 @@ class TlsSettingsTest {
         } catch (Exception e) {
             throw new AssertionError(e);
         }
-        TlsSettings.configure(trustsServer, null);
+        TlsSettings.configure(() -> trustsServer, null);
         new OshConSysApiClient(root, "bob", "secret".toCharArray())
                 .sendGetRequest(URI.create(root + "get"), ResourceFormat.JSON, TlsSettingsTest::text).join();
         ConSysApiClientExtras.newBuilder(root).simpleAuth("bob", "secret".toCharArray()).build()
