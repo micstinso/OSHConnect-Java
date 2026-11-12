@@ -12,8 +12,12 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class APIRequest {
+    private static final Logger LOG = Logger.getLogger(APIRequest.class.getName());
+
     private String url;
     private String body;
     private Map<String, String> params;
@@ -35,7 +39,7 @@ public class APIRequest {
             connection.disconnect();
             return apiResponse;
         } catch (IOException e) {
-            e.printStackTrace();
+            logFailure(HttpRequestMethod.GET, e);
         }
 
         return null;
@@ -61,10 +65,22 @@ public class APIRequest {
             connection.disconnect();
             return apiResponse;
         } catch (IOException e) {
-            e.printStackTrace();
+            logFailure(requestMethod, e);
         }
 
         return null;
+    }
+
+    /**
+     * Logs a failed request: a one-line warning (no query parameters, no stack
+     * trace), with the stack trace only at FINE, instead of printing it to stderr.
+     */
+    private void logFailure(HttpRequestMethod requestMethod, IOException e) {
+        if (LOG.isLoggable(Level.WARNING))
+            LOG.warning(requestMethod + " " + url + " failed: " + e.getClass().getSimpleName()
+                    + (e.getMessage() != null ? ": " + e.getMessage() : ""));
+        if (LOG.isLoggable(Level.FINE))
+            LOG.log(Level.FINE, requestMethod + " " + url + " failed", e);
     }
 
     private HttpURLConnection buildConnection(HttpRequestMethod requestMethod) {
