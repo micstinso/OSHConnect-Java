@@ -76,7 +76,7 @@ class TlsSettingsTest {
         }
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(ks, PASS.toCharArray());
-        SSLContext serverContext = SSLContext.getInstance("TLS");
+        SSLContext serverContext = SSLContext.getInstance("TLSv1.3");
         serverContext.init(kmf.getKeyManagers(), null, null);
         server = HttpsServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.setHttpsConfigurator(new HttpsConfigurator(serverContext));
